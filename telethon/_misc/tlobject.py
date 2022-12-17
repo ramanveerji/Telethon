@@ -44,8 +44,7 @@ class TLObject:
             if isinstance(data, str):
                 data = data.encode('utf-8')
             else:
-                raise TypeError(
-                    'bytes or str expected, not {}'.format(type(data)))
+                raise TypeError(f'bytes or str expected, not {type(data)}')
 
         r = []
         if len(data) < 254:
@@ -54,8 +53,6 @@ class TLObject:
                 padding = 4 - padding
 
             r.append(bytes([len(data)]))
-            r.append(data)
-
         else:
             padding = len(data) % 4
             if padding != 0:
@@ -67,9 +64,7 @@ class TLObject:
                 (len(data) >> 8) % 256,
                 (len(data) >> 16) % 256
             ]))
-            r.append(data)
-
-        r.append(bytes(padding))
+        r.extend((data, bytes(padding)))
         return b''.join(r)
 
     @staticmethod
@@ -90,7 +85,7 @@ class TLObject:
         if isinstance(dt, int):
             return struct.pack('<i', dt)
 
-        raise TypeError('Cannot interpret "{}" as a date.'.format(dt))
+        raise TypeError(f'Cannot interpret "{dt}" as a date.')
 
     def __eq__(self, o):
         return isinstance(o, type(self)) and self.to_dict() == o.to_dict()

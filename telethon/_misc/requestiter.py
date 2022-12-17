@@ -34,7 +34,7 @@ class RequestIter(abc.ABC):
         self.index = 0
         self.total = None
         self.last_load = 0
-        self.return_single = limit == 1 or limit == ()
+        self.return_single = limit in [1, ()]
 
     async def _init(self, **kwargs):
         """

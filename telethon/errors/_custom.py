@@ -33,9 +33,8 @@ class InvalidChecksumError(Exception):
     """
     def __init__(self, checksum, valid_checksum):
         super().__init__(
-            'Invalid checksum ({} when {} was expected). '
-            'This packet should be skipped.'
-            .format(checksum, valid_checksum))
+            f'Invalid checksum ({checksum} when {valid_checksum} was expected). This packet should be skipped.'
+        )
 
         self.checksum = checksum
         self.valid_checksum = valid_checksum
@@ -50,12 +49,10 @@ class InvalidBufferError(BufferError):
         self.payload = payload
         if len(payload) == 4:
             self.code = -struct.unpack('<i', payload)[0]
-            super().__init__(
-                'Invalid response buffer (HTTP code {})'.format(self.code))
+            super().__init__(f'Invalid response buffer (HTTP code {self.code})')
         else:
             self.code = None
-            super().__init__(
-                'Invalid response buffer (too short {})'.format(self.payload))
+            super().__init__(f'Invalid response buffer (too short {self.payload})')
 
 
 class SecurityError(Exception):
@@ -119,9 +116,12 @@ class BadMessageError(Exception):
     }
 
     def __init__(self, request, code):
-        super().__init__(request, self.ErrorMessages.get(
-            code,
-            'Unknown error code (this should not happen): {}.'.format(code)))
+        super().__init__(
+            request,
+            self.ErrorMessages.get(
+                code, f'Unknown error code (this should not happen): {code}.'
+            ),
+        )
 
         self.code = code
 

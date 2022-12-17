@@ -42,8 +42,7 @@ class AlbumHack:
         asyncio.create_task(self.deliver_event())
 
     def extend(self, messages):
-        client = self._client()
-        if client:  # weakref may be dead
+        if client := self._client():
             self._event.messages.extend(messages)
             self._due = asyncio.get_running_loop().time() + _HACK_DELAY
 

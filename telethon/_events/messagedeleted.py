@@ -47,6 +47,6 @@ class MessageDeleted(EventBuilder, _custom.chatgetter.ChatGetter):
         self = cls.__new__(cls)
         self._client = client
         self._chat = entities.get(peer)
-        self.deleted_id = None if not update.messages else update.messages[0]
+        self.deleted_id = update.messages[0] if update.messages else None
         self.deleted_ids = update.messages
         return self

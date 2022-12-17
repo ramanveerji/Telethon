@@ -301,8 +301,8 @@ class InlineBuilder:
                             type = ty
                             break
 
-            if type is None:
-                type = 'file'
+        if type is None:
+            type = 'file'
 
         try:
             fh = utils.get_input_document(file)
@@ -386,7 +386,7 @@ class InlineBuilder:
     ):
         # Empty strings are valid but false-y; if they're empty use dummy '\0'
         args = ('\0' if text == '' else text, geo, contact, game)
-        if sum(1 for x in args if x is not None and x is not False) != 1:
+        if sum(x is not None and x is not False for x in args) != 1:
             raise ValueError(
                 'Must set exactly one of text, geo, contact or game (set {})'
                 .format(', '.join(x[0] for x in zip(
@@ -421,11 +421,7 @@ class InlineBuilder:
                 reply_markup=markup
             )
         elif isinstance(geo, (_tl.InputMediaVenue, _tl.MessageMediaVenue)):
-            if isinstance(geo, _tl.InputMediaVenue):
-                geo_point = geo.geo_point
-            else:
-                geo_point = geo.geo
-
+            geo_point = geo.geo_point if isinstance(geo, _tl.InputMediaVenue) else geo.geo
             return _tl.InputBotInlineMessageMediaVenue(
                 geo_point=geo_point,
                 title=geo.title,

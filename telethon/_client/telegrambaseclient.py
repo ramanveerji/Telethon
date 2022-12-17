@@ -161,9 +161,9 @@ def init(
             "Refer to docs.telethon.dev for more information.")
 
     if local_addr is not None:
-        if use_ipv6 is False and ':' in local_addr:
+        if not use_ipv6 and ':' in local_addr:
             raise TypeError('A local IPv6 address must only be used with `use_ipv6=True`.')
-        elif use_ipv6 is True and ':' not in local_addr:
+        elif use_ipv6 and ':' not in local_addr:
             raise TypeError('`use_ipv6=True` must only be used with a local IPv6 address.')
 
     self._transport = transports.Full()
@@ -171,7 +171,7 @@ def init(
     self._local_addr = local_addr
     self._proxy = proxy
     self._auto_reconnect = auto_reconnect
-    self._api_id = int(api_id)
+    self._api_id = api_id
     self._api_hash = api_hash
 
     # Used on connection. Capture the variables in a lambda since
@@ -342,13 +342,7 @@ def set_proxy(self: 'TelegramClient', proxy: typing.Union[tuple, dict]):
 
     self._proxy = proxy
 
-    # While `await client.connect()` passes new proxy on each new call,
-    # auto-reconnect attempts use already set up `_connection` inside
-    # the `_sender`, so the only way to change proxy between those
-    # is to directly inject parameters.
-
-    connection = getattr(self._sender, "_connection", None)
-    if connection:
+    if connection := getattr(self._sender, "_connection", None):
         if isinstance(connection, conns.TcpMTProxy):
             connection._ip = proxy[0]
             connection._port = proxy[1]
