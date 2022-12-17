@@ -41,7 +41,7 @@ class Error:
 
         has_captures = '0' in name
         if has_captures:
-            self.capture_name = re.search(r'{(\w+)}', description).group(1)
+            self.capture_name = re.search(r'{(\w+)}', description)[1]
         else:
             self.capture_name = None
 
@@ -58,13 +58,13 @@ def parse_errors(csv_file):
             try:
                 name, codes, description = tup
             except ValueError:
-                raise ValueError('Columns count mismatch, unquoted comma in '
-                                 'desc? (line {})'.format(line)) from None
+                raise ValueError(
+                    f'Columns count mismatch, unquoted comma in desc? (line {line})'
+                ) from None
 
             try:
                 codes = [int(x) for x in codes.split()] or [400]
             except ValueError:
-                raise ValueError('Not all codes are integers '
-                                 '(line {})'.format(line)) from None
+                raise ValueError(f'Not all codes are integers (line {line})') from None
 
             yield Error([int(x) for x in codes], name, description)

@@ -69,35 +69,34 @@ async def _call(self: 'TelegramClient', sender, request, ordered=False, flood_sl
     last_error = None
     self._last_request = time.time()
 
-    for attempt in helpers.retry_range(self._request_retries):
+    for _ in helpers.retry_range(self._request_retries):
         try:
             future = sender.send(request, ordered=ordered)
-            if isinstance(future, list):
-                results = []
-                exceptions = []
-                for f in future:
-                    try:
-                        result = await f
-                    except RpcError as e:
-                        exceptions.append(e)
-                        results.append(None)
-                        continue
-                    exceptions.append(None)
-                    results.append(result)
-                    request_index += 1
-                if any(x is not None for x in exceptions):
-                    raise MultiError(exceptions, results, requests)
-                else:
-                    return results
+            if not isinstance(future, list):
+                return await future
+            results = []
+            exceptions = []
+            for f in future:
+                try:
+                    result = await f
+                except RpcError as e:
+                    exceptions.append(e)
+                    results.append(None)
+                    continue
+                exceptions.append(None)
+                results.append(result)
+                request_index += 1
+            if any(x is not None for x in exceptions):
+                raise MultiError(exceptions, results, requests)
             else:
-                result = await future
-                return result
+                return results
         except ServerError as e:
             last_error = e
             self._log[__name__].warning(
                 'Telegram is having internal issues %s: %s',
-                e.__class__.__name__, e)
-
+                last_error.__class__.__name__,
+                last_error,
+            )
             await asyncio.sleep(2)
         except FloodError as e:
             last_error = e
@@ -114,11 +113,10 @@ async def _call(self: 'TelegramClient', sender, request, ordered=False, flood_sl
             if e.seconds == 0:
                 e.seconds = 1
 
-            if e.seconds <= self.flood_sleep_threshold:
-                self._log[__name__].info(*_fmt_flood(e.seconds, request))
-                await asyncio.sleep(e.seconds)
-            else:
+            if e.seconds > self.flood_sleep_threshold:
                 raise
+            self._log[__name__].info(*_fmt_flood(e.seconds, request))
+            await asyncio.sleep(e.seconds)
         except InvalidDcError as e:
             last_error = e
             self._log[__name__].info('Phone migrated to %d', e.new_dc)
@@ -282,10 +280,7 @@ async def _get_input_peer(
             pass
 
     raise ValueError(
-        'Could not find the input peer for {} ({}). Please read https://'
-        'docs.telethon.dev/en/latest/concepts/entities.html to'
-        ' find out more details.'
-        .format(peer, type(peer).__name__)
+        f'Could not find the input peer for {peer} ({type(peer).__name__}). Please read https://docs.telethon.dev/en/latest/concepts/entities.html to find out more details.'
     )
 
 async def _get_peer_id(
@@ -319,8 +314,7 @@ async def _get_entity_from_string(self: 'TelegramClient', string):
 
     Returns the found entity, or raises TypeError if not found.
     """
-    phone = utils.parse_phone(string)
-    if phone:
+    if phone := utils.parse_phone(string):
         try:
             for user in (await self(
                     _tl.fn.contacts.GetContacts(0))).users:
@@ -349,8 +343,7 @@ async def _get_entity_from_string(self: 'TelegramClient', string):
                 result = await self(
                     _tl.fn.contacts.ResolveUsername(username))
             except errors.USERNAME_NOT_OCCUPIED as e:
-                raise ValueError('No user has "{}" as username'
-                                    .format(username)) from e
+                raise ValueError(f'No user has "{username}" as username') from e
 
             try:
                 pid = utils.get_peer_id(result.peer)
@@ -361,9 +354,7 @@ async def _get_entity_from_string(self: 'TelegramClient', string):
             except StopIteration:
                 pass
 
-    raise ValueError(
-        'Cannot find any entity corresponding to "{}"'.format(string)
-    )
+    raise ValueError(f'Cannot find any entity corresponding to "{string}"')
 
 async def _get_input_dialog(self: 'TelegramClient', dialog):
     """

@@ -30,8 +30,7 @@ def generate_random_long(signed=True):
 
 def ensure_parent_dir_exists(file_path):
     """Ensures that the parent directory exists"""
-    parent = os.path.dirname(file_path)
-    if parent:
+    if parent := os.path.dirname(file_path):
         os.makedirs(parent, exist_ok=True)
 
 
@@ -110,10 +109,7 @@ def retry_range(retries):
 
 
 async def _maybe_await(value):
-    if inspect.isawaitable(value):
-        return await value
-    else:
-        return value
+    return await value if inspect.isawaitable(value) else value
 
 
 async def _cancel(log, **tasks):
@@ -171,22 +167,24 @@ def _entity_type(entity):
                 0x1f4661b9,  # crc32(b'UserFull')
                 0xd49a2697,  # crc32(b'ChatFull')
         ):
-            raise TypeError('{} does not have any entity type'.format(entity))
+            raise TypeError(f'{entity} does not have any entity type')
     except AttributeError:
-        raise TypeError('{} is not a TLObject, cannot determine entity type'.format(entity))
+        raise TypeError(f'{entity} is not a TLObject, cannot determine entity type')
 
     name = entity.__class__.__name__
-    if 'User' in name:
+    if (
+        'User' in name
+        or 'Chat' not in name
+        and 'Channel' not in name
+        and 'Self' in name
+    ):
         return _EntityType.USER
     elif 'Chat' in name:
         return _EntityType.CHAT
     elif 'Channel' in name:
         return _EntityType.CHANNEL
-    elif 'Self' in name:
-        return _EntityType.USER
-
     # 'Empty' in name or not found, we don't care, not a valid entity.
-    raise TypeError('{} does not have any entity type'.format(entity))
+    raise TypeError(f'{entity} does not have any entity type')
 
 
 def pretty_print(obj, indent=None, max_depth=float('inf')):
@@ -200,58 +198,53 @@ def pretty_print(obj, indent=None, max_depth=float('inf')):
 
     if indent is None:
         if isinstance(obj, dict):
-            return '{}({})'.format(obj.get('_', 'dict'), ', '.join(
-                '{}={}'.format(k, pretty_print(v, indent, max_depth))
-                for k, v in obj.items() if k != '_'
-            ))
-        elif isinstance(obj, str) or isinstance(obj, bytes):
-            return repr(obj)
-        elif hasattr(obj, '__iter__'):
-            return '[{}]'.format(
-                ', '.join(pretty_print(x, indent, max_depth) for x in obj)
+            return '{}({})'.format(
+                obj.get('_', 'dict'),
+                ', '.join(
+                    f'{k}={pretty_print(v, indent, max_depth)}'
+                    for k, v in obj.items()
+                    if k != '_'
+                ),
             )
-        else:
+        elif isinstance(obj, (str, bytes)) or not hasattr(obj, '__iter__'):
             return repr(obj)
+        else:
+            return f"[{', '.join(pretty_print(x, indent, max_depth) for x in obj)}]"
     else:
         result = []
 
         if isinstance(obj, dict):
-            result.append(obj.get('_', 'dict'))
-            result.append('(')
+            result.extend((obj.get('_', 'dict'), '('))
             if obj:
                 result.append('\n')
                 indent += 1
                 for k, v in obj.items():
                     if k == '_':
                         continue
-                    result.append('\t' * indent)
-                    result.append(k)
-                    result.append('=')
-                    result.append(pretty_print(v, indent, max_depth))
-                    result.append(',\n')
+                    result.extend(
+                        (
+                            '\t' * indent,
+                            k,
+                            '=',
+                            pretty_print(v, indent, max_depth),
+                            ',\n',
+                        )
+                    )
                 result.pop()  # last ',\n'
                 indent -= 1
-                result.append('\n')
-                result.append('\t' * indent)
+                result.extend(('\n', '\t' * indent))
             result.append(')')
 
-        elif isinstance(obj, str) or isinstance(obj, bytes):
+        elif isinstance(obj, (str, bytes)) or not hasattr(obj, '__iter__'):
             result.append(repr(obj))
 
-        elif hasattr(obj, '__iter__'):
+        else:
             result.append('[\n')
             indent += 1
             for x in obj:
-                result.append('\t' * indent)
-                result.append(pretty_print(x, indent, max_depth))
-                result.append(',\n')
+                result.extend(('\t' * indent, pretty_print(x, indent, max_depth), ',\n'))
             indent -= 1
-            result.append('\t' * indent)
-            result.append(']')
-
-        else:
-            result.append(repr(obj))
-
+            result.extend(('\t' * indent, ']'))
         return ''.join(result)
 
 
@@ -306,12 +299,10 @@ class TotalList(list):
         self.total = 0
 
     def __str__(self):
-        return '[{}, total={}]'.format(
-            ', '.join(str(x) for x in self), self.total)
+        return f"[{', '.join(str(x) for x in self)}, total={self.total}]"
 
     def __repr__(self):
-        return '[{}, total={}]'.format(
-            ', '.join(repr(x) for x in self), self.total)
+        return f"[{', '.join(repr(x) for x in self)}, total={self.total}]"
 
 
 class _FileStream(io.IOBase):

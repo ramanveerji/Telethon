@@ -424,9 +424,8 @@ class Message(ChatGetter, SenderGetter):
         self = cls.__new__(cls)
 
         sender_id = None
-        if isinstance(message, _tl.Message):
-            if message.from_id is not None:
-                sender_id = utils.get_peer_id(message.from_id)
+        if isinstance(message, _tl.Message) and message.from_id is not None:
+            sender_id = utils.get_peer_id(message.from_id)
 
         self = cls.__new__(cls)
         self._client = client
@@ -663,8 +662,7 @@ class Message(ChatGetter, SenderGetter):
         etc., without having to manually inspect the ``document.attributes``.
         """
         if not self._file:
-            media = self.photo or self.document
-            if media:
+            if media := self.photo or self.document:
                 self._file = File(media)
 
         return self._file
@@ -706,9 +704,10 @@ class Message(ChatGetter, SenderGetter):
         """
         The :tl:`WebPage` media in this message, if any.
         """
-        if isinstance(self.media, _tl.MessageMediaWebPage):
-            if isinstance(self.media.webpage, _tl.WebPage):
-                return self.media.webpage
+        if isinstance(self.media, _tl.MessageMediaWebPage) and isinstance(
+            self.media.webpage, _tl.WebPage
+        ):
+            return self.media.webpage
 
     @property
     def audio(self):
@@ -925,22 +924,12 @@ class Message(ChatGetter, SenderGetter):
             if not self.reply_to:
                 return None
 
-            # Bots cannot access other bots' messages by their ID.
-            # However they can access them through replies...
-            self._reply_message = await self._client.get_messages(
-                self.chat,
-                ids=_tl.InputMessageReplyTo(self.id)
-            )
-            if not self._reply_message:
-                # ...unless the current message got deleted.
-                #
-                # If that's the case, give it a second chance accessing
-                # directly by its ID.
+            else:
                 self._reply_message = await self._client.get_messages(
-                    self.chat,
-                    ids=self.reply_to.reply_to_msg_id
+                    self.chat, ids=_tl.InputMessageReplyTo(self.id)
+                ) or await self._client.get_messages(
+                    self.chat, ids=self.reply_to.reply_to_msg_id
                 )
-
         return self._reply_message
 
     async def respond(self, *args, **kwargs):
@@ -1210,10 +1199,7 @@ class Message(ChatGetter, SenderGetter):
 
             if i is None:
                 i = 0
-            if j is None:
-                return self._buttons_flat[i]
-            else:
-                return self._buttons[i][j]
+            return self._buttons_flat[i] if j is None else self._buttons[i][j]
 
         button = find_button()
         if button:
@@ -1328,27 +1314,22 @@ class Message(ChatGetter, SenderGetter):
         for row in self.reply_markup.rows:
             for button in row.buttons:
                 if isinstance(button, _tl.KeyboardButtonSwitchInline):
-                    # no via_bot_id means the bot sent the message itself (#1619)
-                    if button.same_peer or not self.via_bot_id:
-                        bot = self.input_sender
-                        if not bot:
-                            raise ValueError('No input sender')
+                    if not button.same_peer and self.via_bot_id:
+                        raise ValueError('No input sender') from None
+                    if bot := self.input_sender:
                         return bot
                     else:
-                        raise ValueError('No input sender') from None
+                        raise ValueError('No input sender')
 
     def _document_by_attribute(self, kind, condition=None):
         """
         Helper method to return the document only if it has an attribute
         that's an instance of the given kind, and passes the condition.
         """
-        doc = self.document
-        if doc:
+        if doc := self.document:
             for attr in doc.attributes:
                 if isinstance(attr, kind):
-                    if not condition or condition(attr):
-                        return doc
-                    return None
+                    return doc if not condition or condition(attr) else None
 
     # endregion Private Methods
 
